@@ -83,6 +83,8 @@ class Tracker:
             return None
         if kind == "complete":
             tok.graduated = True
+            if tok.curve_pct < 95:  # fast-graduating / custom variant: our curve model doesn't apply
+                tok.nonstandard = True
             return tok
         user, amt = ev["user"], ev["tokens"]
         tok.holders[user] = tok.holders.get(user, 0) + (amt if ev["is_buy"] else -amt)

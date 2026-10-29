@@ -100,3 +100,15 @@ def test_nonstandard_curve_trade_flags_token(t):
 def test_standard_trade_keeps_token_standard(t):
     t.on_event(trade("A", 1, vsol=30 * 10**9, vtok=1_073_000_000 * 10**6, rtok=793_100_000_000_000), slot=101, now=1001)
     assert not t.tokens[M].nonstandard
+
+
+def test_early_graduation_marks_token_nonstandard(t):
+    t.on_event(trade("A", 1, vsol=30 * 10**9, vtok=1_073_000_000 * 10**6, rtok=793_100_000_000_000), slot=101, now=1001)
+    t.on_event({"kind": "complete", "mint": M}, slot=102, now=1002)
+    assert t.tokens[M].graduated and t.tokens[M].nonstandard
+
+
+def test_normal_graduation_stays_standard(t):
+    t.on_event(trade("A", 1, vsol=115_005_359_056, vtok=279_900_000 * 10**6, rtok=0), slot=101, now=1001)
+    t.on_event({"kind": "complete", "mint": M}, slot=102, now=1002)
+    assert t.tokens[M].graduated and not t.tokens[M].nonstandard
