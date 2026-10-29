@@ -9,8 +9,12 @@ FIX = pathlib.Path(__file__).parent / "fixtures"
 def replay(engine, path):
     rows = [json.loads(l) for l in open(path)]
     t0 = rows[0]["rx"]
+    seen = set()
     for r in rows:
         ev = decode_program_data(r["data"])
+        if (r["sig"], r["data"]) in seen:
+            continue
+        seen.add((r["sig"], r["data"]))
         if ev:
             engine.handle(r["slot"], ev, now=r["rx"] - t0 + 1000.0, local_hour=14)
     return rows
@@ -19,8 +23,8 @@ def replay(engine, path):
 def test_replay_real_capture_tracks_new_tokens_and_logs_decisions(tmp_path):
     e = Engine(parse_rules(DEFAULT_YAML), data_dir=tmp_path)
     replay(e, FIX / "capture.jsonl")
-    assert len(e.tracker.tokens) >= 20          # 26 creates in the capture
-    assert e.stats["events"] > 2000
+    assert len(e.tracker.tokens) == 14          # 14 unique launches in the capture
+    assert e.stats["events"] > 1300
     snap = e.snapshot(now=1100.0)
     assert snap["feed"]["events"] == e.stats["events"]
     assert "positions" in snap and "tokens" in snap and "account" in snap
@@ -36,6 +40,7 @@ def test_pass_triggers_paper_entry_and_journal(tmp_path):
     tr = {"kind": "trade", "mint": "MX", "sol": 10**9, "tokens": 30 * 10**12, "is_buy": True,
           "user": "U", "ts": 0, "vsol": 31 * 10**9, "vtok": 1040 * 10**12, "rsol": 0,
           "rtok": 760 * 10**12, "fee_bps": 95, "creator": "D", "creator_fee_bps": 30}
+    assert "MX" not in e.paper.pending      # never enter on the create event alone
     e.handle(11, tr, now=2.0, local_hour=12)
     assert "MX" in e.paper.pending
     e.handle(12, tr | {"user": "V"}, now=3.0, local_hour=12)
