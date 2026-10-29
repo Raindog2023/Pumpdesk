@@ -93,8 +93,9 @@ class Engine:
         if ev["kind"] == "trade" and tok.status not in FINAL:
             f = tok.facts(now, local_hour, self.rules.entry.dev_sell_window_min)
             d = evaluate(f, self.rules)
-            if d.status != tok.status:
-                tok.status, tok.reasons = d.status, d.reasons
+            changed = d.status != tok.status
+            tok.status, tok.reasons = d.status, d.reasons
+            if changed:
                 if d.status in FINAL or d.status == "QUIET":
                     self._log_decision(tok, f, now)
             if d.status == "PASS" and not self.paused:

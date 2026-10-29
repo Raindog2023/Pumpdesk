@@ -15,6 +15,7 @@ class Facts:
     block0_buyers: int
     age_min: float
     local_hour: int
+    nonstandard_curve: bool = False
 
 
 @dataclass
@@ -37,6 +38,8 @@ def in_quiet_hours(hour: int, window: list) -> bool:
 def evaluate(f: Facts, r: Rules) -> Decision:
     e = r.entry
     hard = []
+    if f.nonstandard_curve:
+        hard.append("non-standard curve (mayhem/custom): can't be simulated")
     if f.dev_sold_early:
         hard.append(f"dev sold within {e.dev_sell_window_min:g}m of launch")
     if f.block0_buyers > e.max_block0_buyers:

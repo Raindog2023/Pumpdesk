@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PumpDesk</title>
+<link rel="icon" href="/icon.png">
+<style>
+:root{--bg:#0b0f14;--panel:#111821;--line:#1e2a36;--txt:#d6e2ee;--mute:#7d8fa3;--green:#2ee59d;--red:#ff5c7a;--amber:#ffb547;--blue:#5cb8ff;--mono:ui-monospace,Consolas,"Cascadia Mono",monospace}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--txt);font:13px/1.45 system-ui,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--line);background:#0d131a;position:sticky;top:0;z-index:5}
+.logo{font-weight:800;font-size:16px;letter-spacing:.5px}.logo b{color:var(--green)}
+.badge{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid var(--line);color:var(--mute)}
+.badge.paper{color:var(--amber);border-color:#5a4520}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:6px;vertical-align:middle}
+.dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.sp{flex:1}button{background:#18222d;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
+button:hover{border-color:var(--blue)}button.warn{border-color:#5a2030;color:var(--red)}button.go{border-color:#1d5a44;color:var(--green)}
+main{padding:14px 18px;display:grid;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.kpi .l{color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.6px}.kpi .v{font:700 20px var(--mono);margin-top:2px}
+.pos{color:var(--green)}.neg{color:var(--red)}.mute{color:var(--mute)}
+.tabs{display:flex;gap:6px}.tab{padding:7px 14px;border-radius:6px;cursor:pointer;color:var(--mute);border:1px solid transparent}
+.tab.on{color:var(--txt);background:var(--panel);border-color:var(--line)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.card h3{margin:0;padding:9px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--mute);border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
+.scroll{max-height:420px;overflow:auto}
+table{width:100%;border-collapse:collapse;font:12px var(--mono)}th,td{padding:5px 8px;text-align:left;border-bottom:1px solid #16202a;white-space:nowrap}
+th{color:var(--mute);font-weight:600;position:sticky;top:0;background:var(--panel)}td.r{max-width:340px;overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
+.st{font-weight:700}.st.PASS{color:var(--green)}.st.FAIL{color:var(--red)}.st.EXPIRED{color:var(--mute)}.st.QUIET{color:var(--amber)}.st.WAIT{color:var(--blue)}
+a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+.bar{height:10px;border-radius:3px;display:inline-block;vertical-align:middle}
+textarea{width:100%;height:560px;background:#0a0e13;color:var(--txt);border:0;padding:12px;font:13px/1.5 var(--mono);resize:vertical;outline:none}
+.msg{padding:8px 12px;font:12px var(--mono)}.empty{padding:18px;color:var(--mute);text-align:center}
+canvas{width:100%;height:120px;display:block}
+.hide{display:none}.small{font-size:11px}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Pump<b>Desk</b></div>
+  <span class="badge paper">PAPER MODE · NO WALLET</span>
+  <span id="feed" class="small"><span class="dot"></span>connecting…</span>
+  <span id="rate" class="small mute"></span>
+  <span id="tg" class="small mute"></span>
+  <div class="sp"></div>
+  <button id="pauseBtn" onclick="togglePause()">Pause entries</button>
+</header>
+<main>
+  <section class="kpis">
+    <div class="kpi"><div class="l">Equity (SOL)</div><div class="v" id="k_eq">–</div></div>
+    <div class="kpi"><div class="l">P&amp;L</div><div class="v" id="k_pnl">–</div></div>
+    <div class="kpi"><div class="l">Win rate</div><div class="v" id="k_wr">–</div></div>
+    <div class="kpi"><div class="l">Closed trades</div><div class="v" id="k_tr">–</div></div>
+    <div class="kpi"><div class="l">Avg win / loss</div><div class="v" id="k_wl" style="font-size:15px">–</div></div>
+    <div class="kpi"><div class="l">Tokens tracked</div><div class="v" id="k_tk">–</div></div>
+  </section>
+
+  <nav class="tabs">
+    <div class="tab on" data-t="live">Live</div>
+    <div class="tab" data-t="journal">Journal</div>
+    <div class="tab" data-t="rules">Rules</div>
+    <div class="tab" data-t="settings">Settings &amp; export</div>
+  </nav>
+
+  <section id="t_live">
+    <div class="card"><h3>Open paper positions <span id="posCount"></span></h3><div id="positions"></div></div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>Watching: alive, not yet passing <span class="mute">sorted by curve</span></h3><div class="scroll" id="watching"></div></div>
+      <div class="card"><h3>Decisions <span id="dcount" class="mute"></span></h3><div class="scroll" id="decisions"></div></div>
+    </div>
+  </section>
+
+  <section id="t_journal" class="hide">
+    <div class="card"><h3>Equity curve (closed trades)</h3><canvas id="curve" width="1200" height="120"></canvas></div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>P&amp;L by hour opened (local)</h3><div id="byhour"></div></div>
+      <div class="card"><h3>Exits &amp; top reject reasons</h3><div id="exits"></div></div>
+    </div>
+    <div class="card" style="margin-top:14px"><h3>Closed trades <span class="mute">last 50</span></h3><div class="scroll" id="closed"></div></div>
+  </section>
+
+  <section id="t_rules" class="hide">
+    <div class="card"><h3>rules.yaml: your preference memory <span><button class="go" onclick="saveRules()">Save &amp; apply</button></span></h3>
+      <div id="rulesMsg" class="msg mute">Changes apply instantly. Invalid rules are rejected and the file is left unchanged.</div>
+      <textarea id="rulesTxt" spellcheck="false"></textarea></div>
+  </section>
+
+  <section id="t_settings" class="hide">
+    <div class="grid2">
+      <div class="card"><h3>Export for your Claude Project / weekly review</h3><div class="msg">
+        <p><a href="/api/export/trades.csv">⬇ trades.csv</a>: every closed paper trade, entry facts and exit reason</p>
+        <p><a href="/api/export/tokens.csv">⬇ tokens.csv</a>: every token decision (PASS/FAIL/EXPIRED) with reasons</p>
+        <p><a href="/api/export/rules.yaml">⬇ rules.yaml</a>: your current rules</p>
+        <p class="mute">Upload these to your TRADING DESK project and run the REVIEW prompt.</p></div></div>
+      <div class="card"><h3>Alerts &amp; account</h3><div class="msg">
+        <p><button onclick="tgTest()">Send Telegram test</button> <span id="tgMsg" class="mute"></span></p>
+        <p class="mute">Telegram keys live in the <b>.env</b> file next to the app (TG_TOKEN, TG_CHAT_ID).</p>
+        <p><button class="warn" onclick="resetAcct()">Reset paper account</button> <span class="mute">archives trades.csv and starts again at starting_sol</span></p>
+        <p class="mute" id="src"></p></div></div>
+    </div>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=(v,d=3)=>v==null?'–':Number(v).toFixed(d);
+const sgn=(v,d=3)=>v==null?'–':`<span class="${v>=0?'pos':'neg'}">${v>=0?'+':''}${Number(v).toFixed(d)}</span>`;
+const link=(m,s)=>`<a href="https://pump.fun/coin/${encodeURIComponent(m)}" target="_blank" rel="noopener">${esc(s||m.slice(0,6))}</a>`;
+let last=null,lastEv=null,lastT=null,S=null;
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  ['live','journal','rules','settings'].forEach(n=>$('#t_'+n).classList.toggle('hide',n!==t.dataset.t));
+  if(t.dataset.t==='rules')loadRules();
+});
+
+function table(cols,rows,empty){
+  if(!rows.length)return `<div class="empty">${empty}</div>`;
+  return `<table><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(r=>`<tr>${cols.map(c=>`<td${c[2]?` class="${c[2]}"`:''}>${c[1](r)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+function render(s){
+  S=s;const a=s.account,f=s.feed;
+  $('#feed').innerHTML=`<span class="dot ${f.connected?'on':''}"></span>${f.connected?'live':'reconnecting'}${f.lag_s!=null?` · ${f.lag_s}s`:''}${f.reconnects?` · ${f.reconnects} reconnects`:''}`;
+  if(lastEv!=null){const r=(f.events-lastEv)/((s.now-lastT)||1);$('#rate').textContent=`${r.toFixed(0)} ev/s · ${f.creates} launches`;}
+  lastEv=f.events;lastT=s.now;
+  $('#tg').textContent=s.telegram.enabled?(s.telegram.error?'telegram: '+s.telegram.error:'telegram ✓'):'telegram off';
+  $('#pauseBtn').textContent=s.paused?'Resume entries':'Pause entries';$('#pauseBtn').className=s.paused?'go':'';
+  $('#k_eq').textContent=fmt(a.equity,3);
+  $('#k_pnl').innerHTML=`${sgn(a.pnl,3)} <span class="small">${a.pnl_pct>=0?'+':''}${fmt(a.pnl_pct,1)}%</span>`;
+  $('#k_wr').textContent=a.win_rate==null?'–':a.win_rate+'%';
+  $('#k_tr').textContent=a.trades;
+  $('#k_wl').innerHTML=`${sgn(a.avg_win,4)} / ${sgn(a.avg_loss,4)}`;
+  $('#k_tk').textContent=f.tracked;
+  $('#posCount').textContent=`${s.positions.length} open · cash ${fmt(a.cash,3)} SOL`;
+  $('#positions').innerHTML=table([
+    ['token',r=>link(r.mint,r.symbol)],['cost',r=>fmt(r.cost,4)],['value',r=>fmt(r.value,4)],
+    ['x',r=>`<b class="${r.mult>=1?'pos':'neg'}">${fmt(r.mult,2)}x</b>`],['TP hit',r=>r.tp_done?'✓':''],
+    ['curve',r=>fmt(r.curve_pct,0)+'%'],['mcap',r=>fmt(r.mcap_sol,0)],['age',r=>fmt(r.age_min,1)+'m'],
+    ['',r=>`<button onclick="closePos('${esc(r.mint)}')">close</button>`]
+  ],s.positions,s.paused?'Entries paused.':'No open positions. Waiting for a token that passes every rule.');
+  $('#watching').innerHTML=table([
+    ['token',r=>link(r.mint,r.symbol)],['curve',r=>fmt(r.curve_pct,0)+'%'],['top10',r=>fmt(r.top10_pct,1)],
+    ['dev',r=>fmt(r.dev_pct,1)],['b0',r=>r.block0],['buyers',r=>r.buyers],['age',r=>fmt(r.age_min,0)+'m'],
+    ['why not yet',r=>esc(r.reasons),'r']
+  ],s.watching,'Nothing active yet.');
+  $('#dcount').textContent=`pass ${f.pass} · fail ${f.fail} · expired ${f.expired}`;
+  $('#decisions').innerHTML=table([
+    ['time',r=>esc(r.time.slice(11))],['token',r=>link(r.mint,r.symbol)],['status',r=>`<span class="st ${esc(r.status)}">${esc(r.status)}</span>`],
+    ['curve',r=>r.curve_pct+'%'],['top10',r=>r.top10_pct],['dev',r=>r.dev_pct],['b0',r=>r.block0],['reasons',r=>esc(r.reasons),'r']
+  ],s.tokens,'No decisions yet. New launches need trades before they can be judged.');
+  renderJournal(s);
+}
+
+function renderJournal(s){
+  $('#closed').innerHTML=table([
+    ['closed',r=>esc(String(r.closed).slice(5,16).replace('T',' '))],['token',r=>link(r.mint,r.symbol)],
+    ['P&L SOL',r=>sgn(+r.pnl_sol,4)],['%',r=>sgn(+r.pnl_pct,1)],['peak',r=>fmt(r.peak_mult,2)+'x'],
+    ['held',r=>fmt(r.hold_min,1)+'m'],['exit',r=>esc(r.exit_reason)],['entry curve',r=>esc(r.entry_curve_pct)+'%'],
+    ['top10',r=>esc(r.entry_top10_pct)],['buyers',r=>esc(r.entry_buyers)]
+  ],s.closed,'No closed trades yet.');
+  const mx=Math.max(0.0001,...s.by_hour.map(b=>Math.abs(b.pnl)));
+  $('#byhour').innerHTML=table([
+    ['hour',b=>String(b.hour).padStart(2,'0')+':00'],['trades',b=>b.trades],['win%',b=>(b.wins/b.trades*100).toFixed(0)],
+    ['P&L',b=>sgn(b.pnl,4)],['',b=>`<span class="bar" style="width:${Math.abs(b.pnl)/mx*160}px;background:${b.pnl>=0?'var(--green)':'var(--red)'}"></span>`]
+  ],s.by_hour,'Needs closed trades.');
+  const ex=Object.entries(s.by_exit).map(([k,v])=>({k,v,t:'exit'})).concat(Object.entries(s.fail_reasons).map(([k,v])=>({k,v,t:'reject'})));
+  $('#exits').innerHTML=table([['type',r=>r.t],['reason',r=>esc(r.k)],['count',r=>r.v]],ex,'Nothing yet.');
+  drawCurve(s.closed.slice().reverse(),s.account.start);
+}
+
+function drawCurve(rows,start){
+  const c=$('#curve'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);
+  if(rows.length<2)return;let eq=start,pts=[start];rows.forEach(r=>{eq+=+r.pnl_sol;pts.push(eq)});
+  const lo=Math.min(...pts),hi=Math.max(...pts),pad=8,h=c.height-pad*2,w=c.width;
+  g.strokeStyle='#1e2a36';g.beginPath();const y0=pad+h-(start-lo)/((hi-lo)||1)*h;g.moveTo(0,y0);g.lineTo(w,y0);g.stroke();
+  g.strokeStyle=eq>=start?'#2ee59d':'#ff5c7a';g.lineWidth=2;g.beginPath();
+  pts.forEach((p,i)=>{const x=i/(pts.length-1)*w,y=pad+h-(p-lo)/((hi-lo)||1)*h;i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();
+}
+
+function connect(){
+  const ws=new WebSocket(`ws://${location.host}/ws`);
+  ws.onmessage=e=>render(JSON.parse(e.data));
+  ws.onclose=()=>{$('#feed').innerHTML='<span class="dot"></span>app offline, retrying…';setTimeout(connect,1500)};
+}
+connect();
+
+async function post(u){return (await fetch(u,{method:'POST'})).json()}
+async function togglePause(){await post(S&&S.paused?'/api/resume':'/api/pause')}
+async function closePos(m){await post('/api/close/'+encodeURIComponent(m))}
+async function tgTest(){const r=await post('/api/telegram/test');$('#tgMsg').textContent=r.ok?'sent ✓':'failed: '+r.error}
+async function resetAcct(){if(confirm('Reset the paper account? Current trades.csv is archived.'))await post('/api/reset')}
+async function loadRules(){$('#rulesTxt').value=await (await fetch('/api/rules')).text()}
+async function saveRules(){
+  const r=await fetch('/api/rules',{method:'PUT',body:$('#rulesTxt').value});const j=await r.json();
+  $('#rulesMsg').innerHTML=j.ok?'<span class="pos">Saved and applied ✓</span>':'<span class="neg">Not saved: '+esc(j.error)+'</span>';
+}
+</script>
+</body>
+</html>

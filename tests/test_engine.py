@@ -38,8 +38,8 @@ def test_pass_triggers_paper_entry_and_journal(tmp_path):
     e.handle(10, {"kind": "create", "mint": "MX", "symbol": "MX", "name": "", "uri": "",
                   "bonding_curve": "", "user": "D", "creator": "D"}, now=1.0, local_hour=12)
     tr = {"kind": "trade", "mint": "MX", "sol": 10**9, "tokens": 30 * 10**12, "is_buy": True,
-          "user": "U", "ts": 0, "vsol": 31 * 10**9, "vtok": 1040 * 10**12, "rsol": 0,
-          "rtok": 760 * 10**12, "fee_bps": 95, "creator": "D", "creator_fee_bps": 30}
+          "user": "U", "ts": 0, "vsol": 30_951_923_076, "vtok": 1040 * 10**12, "rsol": 0,
+          "rtok": 760_100_000_000_000, "fee_bps": 95, "creator": "D", "creator_fee_bps": 30}
     assert "MX" not in e.paper.pending      # never enter on the create event alone
     e.handle(11, tr, now=2.0, local_hour=12)
     assert "MX" in e.paper.pending

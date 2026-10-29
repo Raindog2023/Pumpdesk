@@ -4,7 +4,7 @@ from pumpdesk.filters import Facts, evaluate
 
 def facts(**kw):
     d = dict(curve_pct=40, top10_pct=20, dev_pct=2, dev_sold_early=False,
-             block0_buyers=1, age_min=5, local_hour=14)
+             block0_buyers=1, age_min=5, local_hour=14, nonstandard_curve=False)
     d.update(kw)
     return Facts(**d)
 
@@ -66,3 +66,8 @@ def test_quiet_hours_wrapping_midnight():
 def test_all_reasons_listed():
     d = evaluate(facts(dev_sold_early=True, block0_buyers=5), R)
     assert len(d.reasons) == 2
+
+
+def test_nonstandard_curve_is_final_fail():
+    d = evaluate(facts(nonstandard_curve=True), R)
+    assert d.status == "FAIL" and "non-standard" in d.reasons[0]

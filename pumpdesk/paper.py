@@ -90,6 +90,13 @@ class Paper:
                                      budget=budget, info=info, symbol=t.symbol)
         return True
 
+    def request_exit(self, mint: str, now: float, reason: str = "MANUAL") -> bool:
+        if mint not in self.positions:
+            return False
+        self.pending[mint] = Order(mint, "sell", now + self.rules.sim.latency_ms / 1000,
+                                   fraction=1.0, reason=reason)
+        return True
+
     # ---------- per-update processing
     def on_update(self, t, now: float):
         o = self.pending.get(t.mint)

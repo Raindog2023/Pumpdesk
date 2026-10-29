@@ -118,3 +118,12 @@ def test_state_roundtrip():
     opened(p, t)
     q = Paper.from_state(R, p.to_state())
     assert q.cash == p.cash and set(q.positions) == set(p.positions)
+
+
+def test_manual_close_request():
+    p, t = Paper(R), tok()
+    opened(p, t)
+    assert p.request_exit(t.mint, now=40.0)
+    p.on_update(t, now=41.0)
+    assert p.closed[-1]["exit_reason"] == "MANUAL"
+    assert not p.request_exit("nope", now=42.0)

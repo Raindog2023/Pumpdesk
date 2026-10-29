@@ -7,6 +7,20 @@ from __future__ import annotations
 INITIAL_REAL_TOKENS = 793_100_000_000_000  # tokens sellable before graduation
 
 
+INITIAL_VSOL = 30 * 10**9
+INITIAL_VTOK = 1_073_000_000 * 10**6
+K_STANDARD = INITIAL_VSOL * INITIAL_VTOK
+VTOK_OFFSET = INITIAL_VTOK - INITIAL_REAL_TOKENS  # 279.9M tokens of virtual liquidity
+
+
+def is_standard(vsol: int, vtok: int, rtok: int) -> bool:
+    """True for the classic pump.fun curve (30 SOL / 1.073B virtual). Custom, mayhem and
+    drained curves break this invariant and are not modelled by the simulator."""
+    if vsol <= 0 or vtok <= 0:
+        return False
+    return abs(vsol * vtok / K_STANDARD - 1) < 0.01 and abs((vtok - rtok) - VTOK_OFFSET) < 10**11
+
+
 def progress_pct(real_token_reserves: int) -> float:
     left = max(0, min(real_token_reserves, INITIAL_REAL_TOKENS))
     return (1 - left / INITIAL_REAL_TOKENS) * 100

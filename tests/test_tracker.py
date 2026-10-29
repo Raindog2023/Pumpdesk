@@ -88,3 +88,15 @@ def test_prune_drops_idle_tokens_but_keeps_protected(t):
     tr.on_event(create() | {"mint": "KEEP"}, slot=1, now=1000)
     removed = tr.prune(now=1000 + 3600, idle_s=600, keep={"KEEP"})
     assert removed == 1 and M not in tr.tokens and "KEEP" in tr.tokens
+
+
+def test_nonstandard_curve_trade_flags_token(t):
+    t.on_event(trade("A", 1, vsol=1_114_296_767, vtok=934_725_044_839_320, rtok=654_825_044_839_320), slot=101, now=1001)
+    assert t.tokens[M].nonstandard
+    f = t.tokens[M].facts(now=1002, local_hour=12, dev_window_min=10)
+    assert f.nonstandard_curve
+
+
+def test_standard_trade_keeps_token_standard(t):
+    t.on_event(trade("A", 1, vsol=30 * 10**9, vtok=1_073_000_000 * 10**6, rtok=793_100_000_000_000), slot=101, now=1001)
+    assert not t.tokens[M].nonstandard
