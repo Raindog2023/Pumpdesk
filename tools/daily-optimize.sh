@@ -3,6 +3,7 @@
 # Scheduled via cron (cronjob_manage). Output is delivered to Telegram.
 cd /opt/data/projects/pumpdesk
 set -a; source .env 2>/dev/null; set +a  # load TG_TOKEN, TG_CHAT_ID, HELIUS_KEY
+export PYTHONPATH="/opt/data/projects/pumpdesk:$PYTHONPATH"
 
 # --- Run optimizer in dry-run mode ---
 RESULTS=$(.venv/bin/python tools/optimize_rules.py \
