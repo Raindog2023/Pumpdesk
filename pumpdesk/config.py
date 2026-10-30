@@ -29,6 +29,9 @@ class Settings:
     tg_chat_id: str
     port: int
     data_dir: Path
+    rpc_http: str = ""
+    wallet_file: str = ""
+    live: bool = False
 
 
 def load_settings(root: Path) -> Settings:
@@ -36,6 +39,12 @@ def load_settings(root: Path) -> Settings:
     env = parse_env(env_file.read_text(encoding="utf-8")) if env_file.exists() else {}
     get = lambda k, d="": os.environ.get(k) or env.get(k) or d
     helius = get("HELIUS_KEY")
-    rpc = get("RPC_WSS") or (f"wss://mainnet.helius-rpc.com/?api-key={helius}" if helius else "")
-    return Settings(rpc_wss=rpc, tg_token=get("TG_TOKEN"), tg_chat_id=get("TG_CHAT_ID"),
-                    port=int(get("PORT", "8787")), data_dir=root / "data")
+    wss = get("RPC_WSS") or (f"wss://mainnet.helius-rpc.com/?api-key={helius}" if helius else "")
+    http_rpc = (get("RPC_HTTP")
+                or (f"https://mainnet.helius-rpc.com/?api-key={helius}" if helius else "")
+                or "https://api.mainnet-beta.solana.com")
+    return Settings(rpc_wss=wss, rpc_http=http_rpc,
+                    tg_token=get("TG_TOKEN"), tg_chat_id=get("TG_CHAT_ID"),
+                    port=int(get("PORT", "8787")), data_dir=root / "data",
+                    wallet_file=get("WALLET_FILE", ""),
+                    live=get("LIVE", "").lower() in ("1", "true", "yes"))

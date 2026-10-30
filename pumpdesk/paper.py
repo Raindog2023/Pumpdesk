@@ -41,6 +41,7 @@ class Order:
     reason: str = ""
     info: dict = field(default_factory=dict)
     symbol: str = ""
+    tx_sig: str = ""       # live trading: on-chain tx signature
 
 
 class Paper:

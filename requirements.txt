@@ -3,3 +3,5 @@ fastapi>=0.110
 uvicorn>=0.29
 pyyaml>=6
 httpx>=0.27
+solders>=0.27
+solana>=0.34

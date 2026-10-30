@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .filters import evaluate
+from .live import LiveTrader, LiveConfig, Wallet
 from .paper import Paper
 from .rules import Rules
 from .tracker import Tracker
@@ -36,12 +37,13 @@ def _ts(t: float) -> str:
 
 
 class Engine:
-    def __init__(self, rules: Rules, data_dir: Path):
+    def __init__(self, rules: Rules, data_dir: Path, live_config: LiveConfig | None = None):
         self.rules = rules
         self.dir = Path(data_dir)
         self.dir.mkdir(parents=True, exist_ok=True)
         self.tracker = Tracker()
-        self.paper = self._load_paper()
+        self.live_config = live_config
+        self.paper = self._load_trader()
         self.closed = self._load_closed()
         self.paused = False
         self.decisions: deque = deque(maxlen=300)
@@ -51,13 +53,27 @@ class Engine:
         self.started = time.time()
 
     # ---------- persistence
-    def _load_paper(self) -> Paper:
+    def _load_trader(self):
+        """Load the trader from state.json, falling back to fresh.
+
+        In live mode we always start with a fresh balance from the chain;
+        open positions from a previous session are restored so they can be
+        managed, but cash is read fresh (not trusted from a paper state).
+        """
         p = self.dir / "state.json"
         if p.exists():
             try:
-                return Paper.from_state(self.rules, json.loads(p.read_text()))
+                st = json.loads(p.read_text())
+                if self.live_config is not None:
+                    tr = LiveTrader(self.rules, self.live_config, self.dir)
+                    tr.from_state(st)          # restores positions; refreshes balance
+                else:
+                    tr = Paper.from_state(self.rules, st)
+                return tr
             except Exception:  # noqa: BLE001 — corrupt state, fall back to fresh
                 p.rename(self.dir / f"state.bad.{int(time.time())}.json")
+        if self.live_config is not None:
+            return LiveTrader(self.rules, self.live_config, self.dir)
         return Paper(self.rules)
 
     def _load_closed(self) -> list:
@@ -77,7 +93,10 @@ class Engine:
         self.paper.rules = rules
 
     def reset_account(self):
-        self.paper = Paper(self.rules)
+        if self.live_config is not None:
+            self.paper = LiveTrader(self.rules, self.live_config, self.dir)
+        else:
+            self.paper = Paper(self.rules)
         self.save()
         if (self.dir / "trades.csv").exists():
             (self.dir / "trades.csv").rename(self.dir / f"trades.{datetime.now():%Y%m%d-%H%M%S}.csv")

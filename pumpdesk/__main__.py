@@ -15,6 +15,7 @@ from pathlib import Path
 
 import uvicorn
 
+from .live import LiveConfig, Wallet
 from .config import load_settings
 from .engine import Engine
 from .feed import Feed
@@ -53,11 +54,24 @@ def open_window(url: str):
     webbrowser.open(url)
 
 
-async def run(no_window: bool):
+async def run(no_window: bool, live: bool = False):
     s = load_settings(ROOT)
     s.data_dir.mkdir(parents=True, exist_ok=True)
     rules_path = s.data_dir / "rules.yaml"
-    engine = Engine(load_rules(rules_path), data_dir=s.data_dir)
+    live_config = None
+    if live or s.live:
+        if not s.wallet_file:
+            raise SystemExit("LIVE mode requires WALLET_FILE pointing to a Solana CLI secret key JSON")
+        if not s.rpc_http:
+            raise SystemExit("LIVE mode requires RPC_HTTP (set in .env)")
+        print(f"⚠️  LIVE TRADING ENABLED — wallet: {s.wallet_file}")
+        wallet = Wallet.from_file(s.wallet_file)
+        print(f"   wallet pubkey: {wallet.pubkey}")
+        live_config = LiveConfig(
+            wallet=wallet, http_rpc=s.rpc_http,
+            max_sol_spend=0.5,
+        )
+    engine = Engine(load_rules(rules_path), data_dir=s.data_dir, live_config=live_config)
     tg = Telegram(s.tg_token, s.tg_chat_id)
 
     def on_event(slot, ev):
@@ -122,6 +136,8 @@ async def run(no_window: bool):
 def main():
     ap = argparse.ArgumentParser(prog="pumpdesk")
     ap.add_argument("--no-window", action="store_true", help="don't open the dashboard window")
+    ap.add_argument("--live", action="store_true",
+                    help="place REAL trades (requires WALLET_FILE in .env)")
     args = ap.parse_args()
     (ROOT / "data").mkdir(exist_ok=True)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -135,7 +151,7 @@ def main():
             open_window(f"http://127.0.0.1:{s.port}")
         return
     try:
-        asyncio.run(run(args.no_window))
+        asyncio.run(run(args.no_window, live=args.live))
     except KeyboardInterrupt:
         pass
 
