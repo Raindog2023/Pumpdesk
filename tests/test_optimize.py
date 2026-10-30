@@ -9,8 +9,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
-from optimize_rules import entry_passes, simulate_pnl, compute_metrics, update_rules_yaml, merge_fixed
-
+from optimize_rules import (
+    compute_metrics,
+    entry_passes,
+    merge_fixed,
+    simulate_pnl,
+    update_rules_yaml,
+)
 
 # ── entry_passes ──────────────────────────────────────────────────────
 
