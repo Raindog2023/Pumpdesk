@@ -17,13 +17,12 @@ import base64
 import collections
 import hashlib
 import json
-import struct
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.curve import INITIAL_REAL_TOKENS, INITIAL_VSOL, INITIAL_VTOK, K_STANDARD, VTOK_OFFSET  # noqa: E402
-from pumpdesk.decoder import decode_program_data  # noqa: E402
+from pumpdesk.curve import INITIAL_VSOL, K_STANDARD, VTOK_OFFSET
+from pumpdesk.decoder import decode_program_data
 
 PUMP = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
 TRADE = hashlib.sha256(b"event:TradeEvent").digest()[:8]
@@ -70,9 +69,8 @@ def main():
             by_prog[prog] += 1
             try:
                 raw = base64.b64decode(b64, validate=True)
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001, S112
                 continue
-            if len(raw) < 8 or raw[:8] != TRADE:
                 continue
             total[prog] += 1
             ev = decode_program_data(b64)
@@ -83,7 +81,7 @@ def main():
             ok_tok_offset = abs(t - rt - VTOK_OFFSET) < 10**11
             ok_product = bool(v and t) and abs(v * t / K_STANDARD - 1) < 0.01
             ok_sol_offset = abs(v - rs - INITIAL_VSOL) < 10**9
-            if ok_tok_offset and ok_product:
+            if ok_tok_offset and ok_product and ok_sol_offset:
                 consistent[prog] += 1
             if prog != PUMP:
                 other_prog_trades[prog] += 1

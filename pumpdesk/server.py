@@ -6,7 +6,12 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+)
 
 from .engine import Engine
 from .rules import parse_rules

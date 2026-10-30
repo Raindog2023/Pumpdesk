@@ -56,7 +56,7 @@ class Engine:
         if p.exists():
             try:
                 return Paper.from_state(self.rules, json.loads(p.read_text()))
-            except Exception:  # corrupt state -> start fresh, keep a copy
+            except Exception:  # noqa: BLE001 — corrupt state, fall back to fresh
                 p.rename(self.dir / f"state.bad.{int(time.time())}.json")
         return Paper(self.rules)
 
@@ -95,8 +95,7 @@ class Engine:
             d = evaluate(f, self.rules)
             changed = d.status != tok.status
             tok.status, tok.reasons = d.status, d.reasons
-            if changed:
-                if d.status in FINAL or d.status == "QUIET":
+            if changed and (d.status in FINAL or d.status == "QUIET"):
                     self._log_decision(tok, f, now)
             if d.status == "PASS" and not self.paused:
                 info = {"curve_pct": round(f.curve_pct, 1), "top10_pct": round(f.top10_pct, 1),

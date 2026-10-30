@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.curve import INITIAL_REAL_TOKENS, INITIAL_VSOL, INITIAL_VTOK  # noqa: E402
-from pumpdesk.decoder import decode_program_data  # noqa: E402
+from pumpdesk.curve import INITIAL_REAL_TOKENS
+from pumpdesk.decoder import decode_program_data
 
 
 def main():

@@ -34,7 +34,7 @@ class Settings:
 def load_settings(root: Path) -> Settings:
     env_file = root / ".env"
     env = parse_env(env_file.read_text(encoding="utf-8")) if env_file.exists() else {}
-    get = lambda k, d="": os.environ.get(k) or env.get(k) or d  # noqa: E731
+    get = lambda k, d="": os.environ.get(k) or env.get(k) or d
     helius = get("HELIUS_KEY")
     rpc = get("RPC_WSS") or (f"wss://mainnet.helius-rpc.com/?api-key={helius}" if helius else "")
     return Settings(rpc_wss=rpc, tg_token=get("TG_TOKEN"), tg_chat_id=get("TG_CHAT_ID"),

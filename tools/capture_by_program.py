@@ -12,17 +12,13 @@ decode makes sense per program.
 from __future__ import annotations
 
 import asyncio
-import collections
 import json
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.curve import INITIAL_REAL_TOKENS, INITIAL_VSOL, INITIAL_VTOK, K_STANDARD, is_standard  # noqa: E402
-from pumpdesk.decoder import decode_program_data  # noqa: E402
-
-import websockets  # noqa: E402
+import websockets
 
 
 def walk_logs(logs: list[str]):

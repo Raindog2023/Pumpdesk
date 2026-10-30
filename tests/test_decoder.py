@@ -1,5 +1,7 @@
-import json, pathlib
-from pumpdesk.decoder import decode_program_data, b58encode
+import json
+import pathlib
+
+from pumpdesk.decoder import b58encode, decode_program_data
 
 S = json.loads((pathlib.Path(__file__).parent / "fixtures" / "samples.json").read_text())
 

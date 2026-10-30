@@ -1,4 +1,5 @@
 import pytest
+
 from pumpdesk.tracker import Tracker
 
 SUPPLY = 1_000_000_000 * 10**6

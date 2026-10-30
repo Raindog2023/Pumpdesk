@@ -14,7 +14,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.decoder import decode_program_data  # noqa: E402
+from pumpdesk.decoder import decode_program_data
 
 RPC = "https://api.mainnet-beta.solana.com"
 PUMP = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
@@ -36,9 +36,6 @@ def rpc(method, params):
 
 def find_pda(mint_b58: str) -> str | None:
     """Brute-force is impossible; use the program's known PDA seeds via RPC."""
-    seeds = [b"bonding-curve", b58dec(mint_b58)]
-    for bump in range(255, 250, -1):
-        pass
     # fall back to scanning program accounts is too heavy; use getProgramAccounts
     return None
 

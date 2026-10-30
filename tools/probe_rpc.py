@@ -6,6 +6,7 @@ A good endpoint stays connected and covers slots continuously.
 from __future__ import annotations
 
 import asyncio
+import itertools
 import json
 import sys
 import time
@@ -38,7 +39,7 @@ async def probe(name: str, url: str, secs: float) -> dict:
             while time.time() < deadline:
                 try:
                     raw = await asyncio.wait_for(ws.recv(), timeout=max(1, deadline - time.time()))
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     res["err"] = "timeout"
                     break
                 msg = json.loads(raw)
@@ -58,7 +59,7 @@ async def probe(name: str, url: str, secs: float) -> dict:
         res["uniq_slots"] = uniq
         # slots seen should be roughly contiguous for a healthy stream
         s = sorted(set(res["slots"]))
-        holes = sum(1 for a, b in zip(s, s[1:]) if b - a > 1)
+        holes = sum(1 for a, b in itertools.pairwise(s) if b - a > 1)
         res["slot_holes"] = holes
     return res
 
@@ -72,7 +73,7 @@ async def main():
             continue
         r = await probe(name, url, secs)
         results.append(r)
-        print(f"{r['name']:12} ok={str(r['ok']):5} conn={r['conn_s']:>5}s up={r['uptime_s']:>6}s "
+        print(f"{r['name']:12} ok={r['ok']!s:5} conn={r['conn_s']:>5}s up={r['uptime_s']:>6}s "
               f"msgs={r['msgs']:>7} slots={r.get('uniq_slots','-'):>6} span={r.get('slot_span','-'):>6} "
               f"holes={r.get('slot_holes','-'):>4} err={r['err'][:60]}", flush=True)
     print("\nJSON " + json.dumps(results))

@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.decoder import decode_program_data  # noqa: E402
+from pumpdesk.decoder import decode_program_data
 
 
 def main():
@@ -34,22 +34,21 @@ def main():
             mints[ev["mint"]].append((o["slot"], ev, len(o["data"])))
 
     print(f"mints: {len(mints)}")
-    bad_k = bad_off = bad_sol = 0
+    bad_k = bad_off = 0
     k_forms = collections.Counter()
     examples = []
     for m, rows in mints.items():
         rows.sort(key=lambda r: r[0])
         ks = [e["vsol"] * e["vtok"] for _s, e, _l in rows]
         offs = [e["vtok"] - e["rtok"] for _s, e, _l in rows]
-        soloffs = [e["vsol"] - e["rsol"] for _s, e, _l in rows]
+        soloffs = [e["vsol"] - e["rsol"] for _s, e, _l in rows]  # noqa: F841
         # K constant?
         k_rel = (max(ks) - min(ks)) / max(ks) if ks and max(ks) else 1
         o_rel = (max(offs) - min(offs)) / max(offs) if offs and max(offs) else 1
-        s_rel = (max(soloffs) - min(soloffs)) / max(soloffs) if soloffs and max(soloffs) else 1
         if k_rel > 0.02:
             bad_k += 1
             if len(examples) < 8:
-                examples.append((m, "K varies %.3f" % k_rel, rows[:4]))
+                examples.append((m, "K varies {:.3f}".format(k_rel), rows[:4]))
         if o_rel > 0.02:
             bad_off += 1
         k_forms[round(ks[0] / 1e25, 2) if ks else 0] += 1

@@ -109,8 +109,7 @@ class Paper:
     def tick(self, tokens: dict, now: float):
         for m, o in list(self.pending.items()):
             t = tokens.get(m)
-            if now >= o.fill_at:
-                if t or o.side == "sell":
+            if now >= o.fill_at and (t or o.side == "sell"):
                     self._fill(o, t, now)
         for m, pos in list(self.positions.items()):
             t = tokens.get(m)
@@ -194,7 +193,7 @@ class Paper:
                 "traded": sorted(self.traded)[-5000:], "saved_at": time.time()}
 
     @classmethod
-    def from_state(cls, rules: Rules, st: dict) -> "Paper":
+    def from_state(cls, rules: Rules, st: dict) -> Paper:
         p = cls(rules, cash=st["cash"])
         for d in st.get("positions", []):
             p.positions[d["mint"]] = Position(**d)

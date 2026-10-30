@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.curve import K_STANDARD, VTOK_OFFSET  # noqa: E402
+from pumpdesk.curve import K_STANDARD, VTOK_OFFSET
 
 TOL = 10**11
 TRADE_DISC = bytes.fromhex("bddb7fd34ee661ee")

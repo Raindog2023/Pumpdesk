@@ -6,16 +6,14 @@ with pump.fun's "TradeEvent" discriminator (sha256("event:TradeEvent")[:8])?
 from __future__ import annotations
 
 import asyncio
-import collections
 import json
 import sys
 import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.decoder import TRADE, decode_program_data  # noqa: E402
 
-import websockets  # noqa: E402
+import websockets
 
 
 async def main():

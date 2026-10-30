@@ -1,7 +1,10 @@
-import json, pathlib
+import json
+import pathlib
+
 import pytest
-from pumpdesk.decoder import decode_program_data
+
 from pumpdesk import curve
+from pumpdesk.decoder import decode_program_data
 
 S = json.loads((pathlib.Path(__file__).parent / "fixtures" / "samples.json").read_text())
 

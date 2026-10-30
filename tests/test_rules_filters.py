@@ -1,10 +1,10 @@
-from pumpdesk.rules import Rules, load_rules, parse_rules, DEFAULT_YAML
 from pumpdesk.filters import Facts, evaluate
+from pumpdesk.rules import DEFAULT_YAML, Rules, load_rules, parse_rules
 
 
 def facts(**kw):
-    d = dict(curve_pct=40, top10_pct=20, dev_pct=2, dev_sold_early=False,
-             block0_buyers=1, age_min=5, local_hour=14, nonstandard_curve=False)
+    d = {"curve_pct": 40, "top10_pct": 20, "dev_pct": 2, "dev_sold_early": False,
+         "block0_buyers": 1, "age_min": 5, "local_hour": 14, "nonstandard_curve": False}
     d.update(kw)
     return Facts(**d)
 

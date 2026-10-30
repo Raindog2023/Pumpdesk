@@ -1,6 +1,7 @@
 import pytest
+
 from pumpdesk.paper import Paper
-from pumpdesk.rules import parse_rules, DEFAULT_YAML
+from pumpdesk.rules import DEFAULT_YAML, parse_rules
 from pumpdesk.tracker import Token
 
 R = parse_rules(DEFAULT_YAML)  # 5 SOL, 2% risk, TP 50% @2x, SL 35%, latency 600ms, 1% slip, 0.0005 tx
@@ -57,8 +58,8 @@ def test_no_double_entry_and_max_positions():
 
 def test_stop_loss_closes_after_latency_at_later_price():
     p, t = Paper(R), tok()
-    pos = opened(p, t)
-    price_mult(t, 0.6)
+    opened(p, t)
+    price_mult(t, 0.6)                # price drops below stop-loss threshold
     p.on_update(t, now=20.0)          # trigger -> pending sell
     assert t.mint in p.positions
     price_mult(t, 0.8)                # it dumps further before we land
@@ -134,7 +135,6 @@ def test_orphaned_position_closed_at_cost_basis_on_tick():
     should be closed at cost basis (break-even) so position slots free up."""
     p, t = Paper(R), tok()
     opened(p, t)
-    pos = p.positions[t.mint]
     # Simulate token missing from tracker on next tick
     p.tick({}, now=100.0)  # places STALE sell order at cost basis
     p.tick({}, now=100.0)  # fills the sell order

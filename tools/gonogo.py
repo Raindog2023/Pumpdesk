@@ -19,7 +19,7 @@ import json
 import subprocess
 import sys
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 MIN_TRADES = 100
@@ -66,7 +66,7 @@ def count_rule_changes(data_dir: Path) -> tuple[int, str]:
     try:
         out = subprocess.run(
             ["git", "-C", str(ROOT), "log", "--oneline", "--", "pumpdesk/rules.py", "data/rules.yaml"],
-            capture_output=True, text=True, timeout=20).stdout.strip()
+            check=False, capture_output=True, text=True, timeout=20).stdout.strip()
         return (len(out.splitlines()) if out else 0), "git history"
     except Exception:  # noqa: BLE001
         return 0, "unknown"

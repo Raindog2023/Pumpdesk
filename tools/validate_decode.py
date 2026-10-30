@@ -18,8 +18,8 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.curve import INITIAL_REAL_TOKENS, INITIAL_VSOL, INITIAL_VTOK, K_STANDARD, VTOK_OFFSET  # noqa: E402
-from pumpdesk.decoder import decode_program_data  # noqa: E402
+from pumpdesk.curve import INITIAL_VSOL, K_STANDARD, VTOK_OFFSET
+from pumpdesk.decoder import decode_program_data
 
 RPC = "https://api.mainnet-beta.solana.com"
 
@@ -40,10 +40,9 @@ def main():
         o = json.loads(line)
         try:
             raw = base64.b64decode(o["data"], validate=True)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S112
             continue
         ev = decode_program_data(o["data"])
-        if not ev:
             continue
         if ev["kind"] == "create":
             creates[ev["mint"]] = ev
@@ -91,7 +90,7 @@ def main():
             partial += 1
         else:
             missing.append((m, newest))
-    print(f"\nnewest event vs on-chain account:")
+    print("\nnewest event vs on-chain account:")
     print(f"  all 4 values found (exact match): {exact}/{len(accounts)}")
     print(f"  some values found:                 {partial}/{len(accounts)}")
     print(f"  no values found:                   {len(missing)}/{len(accounts)}")

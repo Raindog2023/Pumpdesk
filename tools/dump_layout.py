@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pumpdesk.decoder import decode_program_data  # noqa: E402
+from pumpdesk.decoder import decode_program_data
 
 # offsets of interest in the classic layout, relative to the discriminator
 LAYOUT = [
@@ -61,7 +61,7 @@ def main():
     multi = {m: d for m, d in by_mint.items() if len(d) > 1}
     print(f"mints with trade events: {len(by_mint)}; with >1 blob size: {len(multi)}")
     sizes = collections.Counter()
-    for m, d in by_mint.items():
+    for d in by_mint.values():
         for s in d:
             sizes[s] += 1
     print("blob sizes:", dict(sorted(sizes.items())))

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Backtest optimizer for PumpDesk trading rules.
 
 Reads data/trades.csv (historical paper trades with entry facts, peak_mult,
@@ -116,16 +115,16 @@ def compute_metrics(trades: list[dict], p: dict) -> dict | None:
         cum += x
         peak = max(peak, cum)
         dd = min(dd, cum - peak)
-    return dict(
-        n=n,
-        total=round(total, 4),
-        avg=round(avg, 6),
-        wr=round(len(wins) / n * 100, 1),
-        sharpe=round(sharpe, 2),
-        max_dd=round(dd, 4),
-        avg_win=round(sum(wins) / len(wins), 6) if wins else 0,
-        avg_loss=round(sum(losses) / len(losses), 6) if losses else 0,
-    )
+    return {
+        "n": n,
+        "total": round(total, 4),
+        "avg": round(avg, 6),
+        "wr": round(len(wins) / n * 100, 1),
+        "sharpe": round(sharpe, 2),
+        "max_dd": round(dd, 4),
+        "avg_win": round(sum(wins) / len(wins), 6) if wins else 0,
+        "avg_loss": round(sum(losses) / len(losses), 6) if losses else 0,
+    }
 
 
 def scan(trades: list[dict], grid: dict, min_trades: int) -> list[tuple[dict, dict]]:

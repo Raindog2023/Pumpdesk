@@ -1,9 +1,10 @@
 import pytest
 from fastapi.testclient import TestClient
-from pumpdesk.server import build_app
+
+from pumpdesk.config import parse_env
 from pumpdesk.engine import Engine
 from pumpdesk.rules import load_rules
-from pumpdesk.config import parse_env
+from pumpdesk.server import build_app
 
 
 class FakeTG:

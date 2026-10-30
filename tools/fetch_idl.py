@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import base64
 import json
-import sys
 import urllib.request
 
 RPC = "https://api.mainnet-beta.solana.com"
@@ -45,7 +44,7 @@ def main():
         try:
             import zlib
             body = zlib.decompress(body)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001, S110
             pass
         try:
             idl = json.loads(body)

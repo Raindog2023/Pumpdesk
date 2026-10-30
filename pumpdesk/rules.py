@@ -102,7 +102,7 @@ class Rules:
 
 def _fill(obj, data: dict, path: str):
     if not isinstance(data, dict):
-        raise ValueError(f"'{path}' must be a section of key: value lines")
+        raise TypeError(f"'{path}' must be a section of key: value lines")
     known = {f.name: f for f in fields(obj)}
     for k, v in data.items():
         if k not in known:

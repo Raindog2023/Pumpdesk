@@ -1,13 +1,16 @@
-import json, pathlib
-from pumpdesk.engine import Engine
-from pumpdesk.rules import parse_rules, DEFAULT_YAML
+import json
+import pathlib
+
 from pumpdesk.decoder import decode_program_data
+from pumpdesk.engine import Engine
+from pumpdesk.rules import DEFAULT_YAML, parse_rules
 
 FIX = pathlib.Path(__file__).parent / "fixtures"
 
 
 def replay(engine, path):
-    rows = [json.loads(l) for l in open(path)]
+    with open(path) as f:
+        rows = [json.loads(l) for l in f]
     t0 = rows[0]["rx"]
     seen = set()
     for r in rows:

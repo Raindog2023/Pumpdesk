@@ -1,5 +1,7 @@
-import json, pathlib
-from pumpdesk.feed import events_from_notification, Deduper
+import json
+import pathlib
+
+from pumpdesk.feed import Deduper, events_from_notification
 
 FIX = pathlib.Path(__file__).parent / "fixtures"
 
