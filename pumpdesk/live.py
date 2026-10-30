@@ -197,6 +197,15 @@ class Rpc:
             "creator": creator,
         }
 
+    def get_mint_program(self, mint: str) -> str:
+        """Detect whether *mint* is owned by legacy Token or Token-2022 program."""
+        r = self._post("getAccountInfo", [mint, {"encoding": "jsonParsed", "commitment": "confirmed"}])
+        val = r.get("value")
+        if not val:
+            return TOKEN_PROGRAM  # fallback
+        return val.get("owner", TOKEN_PROGRAM)
+
+
     def fresh_blockhash(self) -> bytes:
         now = time.time()
         if self._blockhash and now - self._bh_time < 30:
@@ -355,6 +364,7 @@ class LiveTrader:
 
         self._deployed: float = 0.0
         self._fee_recipient: str = ""
+        self._token_programs: dict[str, str] = {}  # mint → "Token..."|Token2022"
         self._last_bal = 0.0
         self._last_bal_t = 0.0
         self.started = time.time()
@@ -404,6 +414,16 @@ class LiveTrader:
                 log.error("fetch fee_recipient: %s", e)
         return self._fee_recipient
 
+    def _detect_token_program(self, mint: str) -> str:
+        """Determine Token vs Token-2022 program for *mint* (cached)."""
+        if mint not in self._token_programs:
+            try:
+                self._token_programs[mint] = self.rpc.get_mint_program(mint)
+            except Exception as e:
+                log.warning("token program detection failed for %s: %s; using default", mint, e)
+                self._token_programs[mint] = self.token_program
+        return self._token_programs[mint]
+
     # ── entry ────────────────────────────────────────────────────────
     def request_entry(self, t: Token, now: float, equity: float, info: dict) -> bool:
         a = self.rules.account
@@ -434,12 +454,13 @@ class LiveTrader:
             log.error("Could not determine fee_recipient; skipping entry")
             return False
 
+        tok_prog = self._detect_token_program(t.mint)
         _CREATOR_CACHE.setdefault(t.mint, t.creator)
 
         try:
             ix = build_buy_ix(
                 self.wallet.pubkey, str(t.mint), token_amount, budget_lamports,
-                fee_recipient, self.token_program,
+                fee_recipient, tok_prog,
             )
             sig = self._send_and_record(ix)
         except Exception as e:
@@ -472,15 +493,18 @@ class LiveTrader:
                       - self.rules.sim.tx_cost_sol * LAMPORTS * 0.5)
         creator = _CREATOR_CACHE.get(mint, "")
         if not creator:
+            _CREATOR_CACHE.setdefault(mint, "")
             return False
         fee_recipient = self._ensure_fee_recipient()
         if not fee_recipient:
             return False
 
+        tok_prog = self._detect_token_program(mint)
+
         try:
             ix = build_sell_ix(
                 self.wallet.pubkey, str(mint), sell_tokens, min_out,
-                fee_recipient, creator, self.token_program,
+                fee_recipient, creator, tok_prog,
             )
             sig = self._send_and_record(ix)
         except Exception as e:

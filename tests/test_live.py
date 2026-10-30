@@ -214,6 +214,7 @@ def _make_trader(balance_sol=5.0, confirmed_sigs=None):
     trader.cash = balance_sol
     trader._deployed = 0.0
     trader._fee_recipient = TEST_FEE_RECIPIENT
+    trader._token_programs = {}
     trader._last_bal = balance_sol
     trader._last_bal_t = 0.0
     trader.started = 0.0
