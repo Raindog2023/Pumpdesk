@@ -32,3 +32,8 @@ class Telegram:
             self.last_error = f"{type(e).__name__}"
             log.warning("telegram: %s", self.last_error)
             return False
+
+    async def close(self):
+        if self._client:
+            await self._client.aclose()
+            self._client = None

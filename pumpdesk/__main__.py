@@ -114,6 +114,8 @@ async def run(no_window: bool):
         for t in tasks:
             t.cancel()
         engine.save()
+        if tg:
+            tg._client and await tg.close()
         log.info("state saved, bye")
 
 

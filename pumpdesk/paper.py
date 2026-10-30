@@ -109,12 +109,17 @@ class Paper:
     def tick(self, tokens: dict, now: float):
         for m, o in list(self.pending.items()):
             t = tokens.get(m)
-            if t and now >= o.fill_at:
-                self._fill(o, t, now)
+            if now >= o.fill_at:
+                if t or o.side == "sell":
+                    self._fill(o, t, now)
         for m, pos in list(self.positions.items()):
             t = tokens.get(m)
             if t and m not in self.pending:
                 self._check_exits(pos, t, now)
+            elif not t and m not in self.pending:
+                # Token not in tracker (e.g. orphaned after engine restart) —
+                # close at cost basis since we can't mark to market.
+                self.pending[m] = Order(m, "sell", now, fraction=1.0, reason="STALE")
 
     def _check_exits(self, pos: Position, t, now: float):
         x = self.rules.exit
@@ -155,7 +160,11 @@ class Paper:
         if not pos:
             return
         q = pos.tokens if o.fraction >= 1 else int(pos.tokens * o.fraction)
-        proceeds = max(0.0, self._proceeds(t, q))
+        if t:
+            proceeds = max(0.0, self._proceeds(t, q))
+        else:
+            # Token not tracked (orphaned after restart) — close at cost basis
+            proceeds = pos.cost_sol * q / pos.tokens if pos.tokens > 0 else 0.0
         self.cash += proceeds
         pos.proceeds += proceeds
         pos.cost_sol -= pos.cost_sol * q / pos.tokens
