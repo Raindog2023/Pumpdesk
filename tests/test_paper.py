@@ -127,3 +127,20 @@ def test_manual_close_request():
     p.on_update(t, now=41.0)
     assert p.closed[-1]["exit_reason"] == "MANUAL"
     assert not p.request_exit("nope", now=42.0)
+
+
+def test_orphaned_position_closed_at_cost_basis_on_tick():
+    """After an engine restart, positions whose tokens aren't in the tracker
+    should be closed at cost basis (break-even) so position slots free up."""
+    p, t = Paper(R), tok()
+    opened(p, t)
+    pos = p.positions[t.mint]
+    # Simulate token missing from tracker on next tick
+    p.tick({}, now=100.0)  # places STALE sell order at cost basis
+    p.tick({}, now=100.0)  # fills the sell order
+    # Position should be closed
+    assert t.mint not in p.positions
+    c = p.closed[-1]
+    assert c["exit_reason"] == "STALE"
+    assert c["pnl_sol"] == pytest.approx(0.0, abs=0.001)
+    assert c["symbol"] == "TST"
