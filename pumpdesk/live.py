@@ -658,7 +658,8 @@ class LiveTrader:
     def to_state(self) -> dict:
         return {"positions": [asdict(p) for p in self.positions.values()],
                 "pending": [asdict(o) for o in self.pending.values()],
-                "deployed": self._deployed}
+                "deployed": self._deployed,
+                "traded": list(self.traded)}
 
     def from_state(self, st: dict):
         for d in st.get("positions", []):
