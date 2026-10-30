@@ -156,7 +156,7 @@ class Rpc:
     # ── high level ──
     def get_balance_sol(self, pubkey: str) -> float:
         r = self._post("getBalance", [pubkey, {"commitment": "confirmed"}])
-        return int(r["value"]["amount"]) / LAMPORTS
+        return int(r["value"]) / LAMPORTS
 
     def get_fee_recipient(self) -> str:
         r = self._post("getAccountInfo", [GLOBAL_PDA_ADDR,
@@ -666,7 +666,6 @@ class LiveTrader:
         for d in st.get("pending", []):
             self.pending[d["mint"]] = Order(**d)
         self._deployed = st.get("deployed", 0.0)
-        self._traded = set(st.get("traded", []))
-        self.traded = self._traded
+        self.traded = set(st.get("traded", []))
         # Refresh cash from the chain — don't trust paper state for live balances
         self._refresh_balance()
