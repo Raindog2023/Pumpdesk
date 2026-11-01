@@ -84,3 +84,4 @@ def decode_program_data(b64: str) -> dict | None:
     except (struct.error, IndexError):
         return None
     return None
+
