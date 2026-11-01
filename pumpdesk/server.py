@@ -23,32 +23,50 @@ EXPORTS = {"trades.csv", "tokens.csv", "rules.yaml"}
 def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
     app = FastAPI(title="PumpDesk", docs_url=None, redoc_url=None)
 
+    # Pre-cache index.html path
+    index_file = STATIC / "index.html"
+
     def snap():
-        s = engine.snapshot(time.time())
-        s["feed"]["connected"] = bool(feed and feed.connected)
-        s["feed"]["reconnects"] = feed.reconnects if feed else 0
-        s["feed"]["lag_s"] = round(time.time() - feed.last_msg, 1) if feed and feed.last_msg else None
-        s["feed"]["error"] = feed.last_error if feed else ""
-        s["feed"]["source"] = (feed.url.split("?")[0] if feed else "")
-        s["telegram"] = {"enabled": bool(telegram and telegram.enabled),
-                         "error": getattr(telegram, "last_error", "")}
-        return s
+        now = time.time()
+        s = engine.snapshot(now)
+        f = {
+            "connected": bool(feed and getattr(feed, "connected", False)),
+            "reconnects": getattr(feed, "reconnects", 0) if feed else 0,
+            "lag_s": round(now - feed.last_msg, 1) if (feed and getattr(feed, "last_msg", None)) else None,
+            "error": getattr(feed, "last_error", "") if feed else "",
+            "source": (feed.url.split("?")[0]) if (feed and getattr(feed, "url", None)) else "",
+            "tracked": s.get("feed", {}).get("tracked", 0),
+        }
+        # Matches frontend unpacking: const a = data.a, s = data.s, f = data.f
+        return {
+            "a": s.get("account", {}),
+            "s": s,
+            "f": f,
+            "now": now,
+        }
 
     @app.get("/", response_class=HTMLResponse)
-    def index():
-        return (STATIC / "index.html").read_text(encoding="utf-8")
+    async def index():
+        if index_file.exists():
+            return HTMLResponse(index_file.read_text(encoding="utf-8"))
+        return HTMLResponse("<h1>index.html not found in static/</h1>", status_code=404)
 
     @app.get("/icon.png")
-    def icon():
-        return FileResponse(STATIC / "icon.png", media_type="image/png")
+    async def icon():
+        icon_path = STATIC / "icon.png"
+        if icon_path.exists():
+            return FileResponse(icon_path, media_type="image/png")
+        return JSONResponse({"error": "icon not found"}, status_code=404)
 
     @app.get("/api/snapshot")
-    def snapshot():
+    async def snapshot():
         return snap()
 
     @app.get("/api/rules", response_class=PlainTextResponse)
-    def get_rules():
-        return rules_path.read_text(encoding="utf-8")
+    async def get_rules():
+        if rules_path.exists():
+            return rules_path.read_text(encoding="utf-8")
+        return ""
 
     @app.put("/api/rules")
     async def put_rules(req: Request):
@@ -57,42 +75,47 @@ def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
             rules = parse_rules(text)
         except ValueError as e:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
         rules_path.write_text(text, encoding="utf-8")
         engine.set_rules(rules)
         app.state.rules_mtime = rules_path.stat().st_mtime
         return {"ok": True}
 
     @app.post("/api/pause")
-    def pause():
+    async def pause():
         engine.paused = True
-        return {"ok": True}
+        return {"ok": True, "paused": True}
 
     @app.post("/api/resume")
-    def resume():
-        engine.paused = False
-        return {"ok": True}
+    async def resume():
+        engine.paused = not engine.paused
+        return {"ok": True, "paused": engine.paused}
 
     @app.post("/api/reset")
-    def reset():
+    async def reset():
         engine.reset_account()
         return {"ok": True}
 
     @app.post("/api/close/{mint}")
-    def close(mint: str):
-        if not engine.paper.request_exit(mint, time.time()):
-            return JSONResponse({"ok": False, "error": "no such open position"}, status_code=404)
-        return {"ok": True}
+    async def close(mint: str):
+        trader = getattr(engine, "trader", getattr(engine, "paper", None))
+        if trader and trader.request_exit(mint, time.time()):
+            return {"ok": True}
+        return JSONResponse({"ok": False, "error": "no such open position"}, status_code=404)
 
     @app.post("/api/telegram/test")
     async def tg_test():
-        ok = bool(telegram) and await telegram.send("✅ PumpDesk connected. Paper-trading alerts will arrive here.")
-        return {"ok": ok, "error": "" if ok else (getattr(telegram, "last_error", "") or "TG_TOKEN / TG_CHAT_ID not set in .env")}
+        ok = bool(telegram) and await telegram.send("🔔 PumpDesk connected. Alerts will arrive here.")
+        err_msg = getattr(telegram, "last_error", "") or "TG_TOKEN / TG_CHAT_ID not set in .env"
+        return {"ok": ok, "error": "" if ok else err_msg}
 
     @app.get("/api/export/{name}")
-    def export(name: str):
-        p = engine.dir / name
-        if name not in EXPORTS or not p.exists():
+    async def export(name: str):
+        if name not in EXPORTS:
             return JSONResponse({"error": "not found"}, status_code=404)
+        p = engine.dir / name
+        if not p.exists():
+            return JSONResponse({"error": "file not found"}, status_code=404)
         return FileResponse(p, filename=name)
 
     @app.websocket("/ws")
@@ -102,7 +125,7 @@ def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
             while True:
                 await sock.send_json(snap())
                 await asyncio.sleep(1.0)
-        except (WebSocketDisconnect, RuntimeError):
-            return
+        except (WebSocketDisconnect, RuntimeError, Exception):
+            pass
 
     return app
