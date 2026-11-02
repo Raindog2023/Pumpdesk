@@ -5,6 +5,7 @@ import csv
 import json
 import time
 from collections import Counter, deque
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
@@ -46,7 +47,7 @@ class Engine:
         self.stats = Counter()
         self.fail_reasons = Counter()
         self.started = time.time()
-        
+
         # In-memory CSV write buffer to eliminate blocking I/O on hot path
         self._csv_buffer: list[tuple[Path, list[str], dict]] = []
 
@@ -63,7 +64,7 @@ class Engine:
             return
         to_write = self._csv_buffer[:]
         self._csv_buffer.clear()
-        
+
         # Group writes by destination path
         by_path: dict[Path, list[tuple[list[str], dict]]] = {}
         for p, f, r in to_write:
@@ -127,11 +128,16 @@ class Engine:
                 self.dir / f"trades.{datetime.now().strftime('%Y%m%d-%H%M%S')}.csv"
             )
         self.closed.clear()
-        self.trader = Paper(self.rules)
+        if self.live_config is not None:
+            self.trader = LiveTrader(self.rules, self.live_config, self.dir)
+        else:
+            self.trader = Paper(self.rules)
         self.save()
 
     def handle(self, slot: int, ev: dict, now: float, local_hour: int):
         self.stats["events"] += 1
+        if ev.get("kind") == "create":
+            self.stats["creates"] += 1
         tok = self.tracker.on_event(ev, slot, now)
         if tok is None:
             return
@@ -147,7 +153,7 @@ class Engine:
 
             if d.status == "PASS" and not self.paused:
                 eq = self.trader.equity(self.tracker.tokens)
-                if not self.trader.request_entry(tok, now, eq, info=f):
+                if not self.trader.request_entry(tok, now, eq, info={**asdict(f), "mcap_sol": tok.mcap_sol}):
                     self.stats["pass_skipped"] += 1
 
         if tok.mint in self.trader.positions or tok.mint in self.trader.pending:
@@ -155,7 +161,7 @@ class Engine:
             self._drain_trader()
 
     def tick(self, now: float):
-        self.trader.tick(now, self.tracker.tokens)
+        self.trader.tick(self.tracker.tokens, now)
         self._drain_trader()
         keep = set(self.trader.positions) | set(self.trader.pending)
         self.stats["pruned"] += self.tracker.prune(now, idle_s=15 * 60, keep=keep)
@@ -172,7 +178,7 @@ class Engine:
             "status": tok.status,
             "reasons": ";".join(tok.reasons),
             "curve_pct": round(f.curve_pct, 1),
-            "mcap_sol": round(f.mcap_sol, 1),
+            "mcap_sol": round(tok.mcap_sol, 1),
             "top10_pct": round(f.top10_pct, 1),
             "dev_pct": round(f.dev_pct, 2),
             "block0": f.block0_buyers,
@@ -191,14 +197,14 @@ class Engine:
 
         for e in self.trader.events:
             link = f"https://pump.fun/coin/{e['mint']}"
-            if e["type"] == "buy":
+            if e["type"] in ("buy", "entry"):
                 self.alerts.append(
                     f"{tag} BUY [{e['symbol']}] \n"
                     f"Cost: {e['sol']:.3f} SOL @ {e.get('mcap_sol', 0):.1f} SOL mcap\n"
                     f"Curve: {e.get('curve_pct', 0):.0f}% | {link}"
                 )
             elif e["type"] in ("exit", "partial"):
-                pfx = "PARTIAL " if e["type"] == "partial" else ""
+                pfx = "PARTIAL " if e["type"] == "partial" or e.get("partial") else ""
                 self.alerts.append(
                     f"{tag} {pfx}SELL [{e['symbol']}] ({e['reason']})\n"
                     f"Proceeds: {e['sol']:.3f} SOL | {link}"
@@ -229,20 +235,19 @@ class Engine:
 
     def snapshot(self, now: float) -> dict:
         toks = self.tracker.tokens
-        account = self.trader.account
-        start = float(self.trader.starting_sol or 1.0)
+        start = float(getattr(self.trader, "starting_sol", self.rules.account.starting_sol) or 1.0)
         pnls = [float(c.get("pnl_sol") or 0) for c in self.closed]
         wins = [p for p in pnls if p > 0]
 
         positions = []
         for m, p in self.trader.positions.items():
             t = toks.get(m)
-            mult = paper_mark_mult(p, t) if (t and "paper_mark_mult" in globals()) else 1.0
+            mult = self.trader.mark_mult(p, t) if t else 1.0
             positions.append({
                 "mint": m,
                 "symbol": p.symbol,
                 "cost": round(p.cost_sol, 4),
-                "value": round(self.trader.paper_mark_value(p, t), 4) if hasattr(self.trader, "paper_mark_value") and t else None,
+                "value": round(self.trader.mark_value(p, t), 4) if t else None,
                 "mult": round(mult, 3),
                 "tp_done": p.tp_done,
                 "age_min": round((now - p.opened_at) / 60, 1),
@@ -257,15 +262,29 @@ class Engine:
 
         total_pnl = sum(pnls)
         safe_start = start if start != 0 else 1.0
+        by_hour: dict[int, dict] = {}
+        by_exit = Counter()
+        for c in self.closed:
+            hour = int(c.get("open_hour") or 0)
+            bucket = by_hour.setdefault(hour, {"hour": hour, "trades": 0, "wins": 0, "pnl": 0.0})
+            pnl = float(c.get("pnl_sol") or 0)
+            bucket["trades"] += 1
+            bucket["wins"] += int(pnl > 0)
+            bucket["pnl"] += pnl
+            by_exit[str(c.get("exit_reason") or "UNKNOWN")] += 1
+        hourly = sorted(by_hour.values(), key=lambda b: b["hour"])
+        for bucket in hourly:
+            bucket["pnl"] = round(bucket["pnl"], 6)
 
         return {
             "now": now,
             "uptime_min": round((now - self.started) / 60, 1),
             "paused": self.paused,
             "account": {
-                "equity": round(account.get("equity", 0), 4),
-                "cash": round(account.get("cash", 0), 4),
+                "equity": round(self.trader.equity(toks), 4),
+                "cash": round(getattr(self.trader, "cash", 0.0), 4),
                 "starting_sol": start,
+                "start": start,
                 "pnl": round(total_pnl, 4),
                 "pnl_pct": round((total_pnl / safe_start) * 100, 2),
                 "trades": len(pnls),
@@ -275,6 +294,10 @@ class Engine:
             },
             "feed": {
                 "events": self.stats["events"],
+                "creates": self.stats["creates"],
+                "pass": self.stats["status_PASS"],
+                "fail": self.stats["status_FAIL"],
+                "expired": self.stats["status_EXPIRED"],
                 "tracked": len(toks),
                 "pruned": self.stats["pruned"],
             },
@@ -283,13 +306,20 @@ class Engine:
                 "mint": t.mint,
                 "symbol": t.symbol,
                 "curve_pct": round(getattr(t, "curve_pct", 0), 1),
-                "top10_pct": round(getattr(t, "top10_pct", 0), 1),
+                "top10_pct": round(t.top10_pct(), 1),
                 "dev_pct": round(getattr(t, "dev_pct", 0), 2),
                 "dev_burned": getattr(t, "dev_burned", False),
+                "block0": getattr(t, "block0_buyers", 0),
                 "buyers": len(getattr(t, "buyers", [])),
-                "age_min": round((now - getattr(t, "born_at", now)) / 60, 1),
+                "age_min": round((now - getattr(t, "born", now)) / 60, 1),
+                "reasons": getattr(t, "reasons", []),
                 "fail_reason": getattr(t, "reasons", [""])[0] if getattr(t, "reasons", None) else "",
             } for t in watching],
+            "tokens": list(self.decisions),
             "decisions": list(self.decisions),
+            "closed": list(reversed(self.closed[-50:])),
+            "by_hour": hourly,
+            "by_exit": dict(by_exit),
             "reject_reasons": dict(self.fail_reasons.most_common(10)),
+            "fail_reasons": dict(self.fail_reasons.most_common(10)),
         }

@@ -85,3 +85,23 @@ def decode_program_data(b64: str) -> dict | None:
         return None
     return None
 
+
+def events_from_notification(msg: dict) -> list[tuple[int, tuple[str, str], dict]]:
+    """Decode successful pump.fun events from a Solana logs notification."""
+    if msg.get("method") != "logsNotification":
+        return []
+    result = msg.get("params", {}).get("result", {})
+    value = result.get("value", {})
+    if value.get("err") is not None:
+        return []
+    slot = result.get("context", {}).get("slot", 0)
+    signature = value.get("signature", "")
+    events = []
+    for line in value.get("logs", []):
+        if not line.startswith("Program data: "):
+            continue
+        data = line[len("Program data: "):]
+        event = decode_program_data(data)
+        if event is not None:
+            events.append((slot, (signature, data), event))
+    return events

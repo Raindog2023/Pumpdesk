@@ -10,6 +10,8 @@ from typing import Callable
 
 import websockets
 
+from .decoder import events_from_notification
+
 log = logging.getLogger("pumpdesk.feed")
 
 PUMP_PROGRAM = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
@@ -18,12 +20,12 @@ PUBLIC_WSS = "wss://api.mainnet-beta.solana.com"
 
 class Deduper:
     """Bounded LRU deduplication cache for transaction signatures/event keys."""
-    def __init__(self, maxsize: int = 50_000):
-        self.maxsize = maxsize
+    def __init__(self, maxsize: int = 50_000, maxlen: int | None = None):
+        self.maxsize = maxlen if maxlen is not None else maxsize
         self._seen: set[str] = set()
         self._order: deque[str] = deque()
 
-    def fresh(self, key: str) -> bool:
+    def fresh(self, key) -> bool:
         if not key:
             return True
         if key in self._seen:
@@ -62,9 +64,6 @@ class Feed:
                 log.exception("Error in feed on_event handler")
 
     async def run(self):
-        # Import lazily to avoid circular dependencies
-        from .decoder import events_from_notification
-
         worker_task = asyncio.create_task(self._worker())
         backoff = 1.0
 
