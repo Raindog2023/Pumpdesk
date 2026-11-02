@@ -23,27 +23,24 @@ EXPORTS = {"trades.csv", "tokens.csv", "rules.yaml"}
 def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
     app = FastAPI(title="PumpDesk", docs_url=None, redoc_url=None)
 
-    # Pre-cache index.html path
     index_file = STATIC / "index.html"
 
     def snap():
         now = time.time()
-        s = engine.snapshot(now)
-        f = {
+        snapshot = engine.snapshot(now)
+        snapshot["feed"].update({
             "connected": bool(feed and getattr(feed, "connected", False)),
             "reconnects": getattr(feed, "reconnects", 0) if feed else 0,
             "lag_s": round(now - feed.last_msg, 1) if (feed and getattr(feed, "last_msg", None)) else None,
             "error": getattr(feed, "last_error", "") if feed else "",
             "source": (feed.url.split("?")[0]) if (feed and getattr(feed, "url", None)) else "",
-            "tracked": s.get("feed", {}).get("tracked", 0),
+            "tracked": snapshot["feed"].get("tracked", 0),
+        })
+        snapshot["telegram"] = {
+            "enabled": bool(telegram and getattr(telegram, "enabled", False)),
+            "error": getattr(telegram, "last_error", "") if telegram else "",
         }
-        # Matches frontend unpacking: const a = data.a, s = data.s, f = data.f
-        return {
-            "a": s.get("account", {}),
-            "s": s,
-            "f": f,
-            "now": now,
-        }
+        return snapshot
 
     @app.get("/", response_class=HTMLResponse)
     async def index():
@@ -73,7 +70,7 @@ def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
         text = (await req.body()).decode("utf-8")
         try:
             rules = parse_rules(text)
-        except ValueError as e:
+        except (TypeError, ValueError) as e:
             return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
 
         rules_path.write_text(text, encoding="utf-8")
@@ -88,7 +85,7 @@ def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
 
     @app.post("/api/resume")
     async def resume():
-        engine.paused = not engine.paused
+        engine.paused = False
         return {"ok": True, "paused": engine.paused}
 
     @app.post("/api/reset")
@@ -125,7 +122,7 @@ def build_app(engine: Engine, rules_path: Path, telegram, feed) -> FastAPI:
             while True:
                 await sock.send_json(snap())
                 await asyncio.sleep(1.0)
-        except (WebSocketDisconnect, RuntimeError, Exception):
+        except (WebSocketDisconnect, RuntimeError):
             pass
 
     return app
