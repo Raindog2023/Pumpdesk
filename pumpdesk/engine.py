@@ -263,8 +263,8 @@ class Engine:
             "uptime_min": round((now - self.started) / 60, 1),
             "paused": self.paused,
             "account": {
-                "equity": round(account.get("equity", 0), 4),
-                "cash": round(account.get("cash", 0), 4),
+                "equity": round(getattr(account, "equity", 0), 4),
+                "cash": round(getattr(account, "cash", 0), 4),
                 "starting_sol": start,
                 "pnl": round(total_pnl, 4),
                 "pnl_pct": round((total_pnl / safe_start) * 100, 2),

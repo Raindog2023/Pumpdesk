@@ -47,6 +47,8 @@ class Order:
 class Paper:
     def __init__(self, rules: Rules, cash: float | None = None):
         self.rules = rules
+        self.starting_sol = self.rules.account.starting_sol
+        self.account = self.rules.account
         self.cash = rules.account.starting_sol if cash is None else cash
         self.positions: dict[str, Position] = {}
         self.pending: dict[str, Order] = {}

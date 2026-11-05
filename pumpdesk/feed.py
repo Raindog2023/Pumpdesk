@@ -9,6 +9,7 @@ from collections import deque
 from typing import Callable
 
 import websockets
+from .decoder import events_from_notification
 
 log = logging.getLogger("pumpdesk.feed")
 

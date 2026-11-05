@@ -347,6 +347,8 @@ class LiveTrader:
 
     def __init__(self, rules: Rules, config: LiveConfig, data_dir: Path):
         self.rules = rules
+        self.starting_sol = self.rules.account.starting_sol
+        self.account = self.rules.account
         self.wallet = config.wallet
         self.rpc = Rpc(config.http_rpc)
         self.max_sol_spend = config.max_sol_spend

@@ -85,3 +85,28 @@ def decode_program_data(b64: str) -> dict | None:
         return None
     return None
 
+def events_from_notification(notification: dict) -> list[tuple[int, tuple[str, str], dict]]:
+    """Extract events from a logsNotification payload."""
+    if not isinstance(notification, dict):
+        return []
+    if notification.get("method") != "logsNotification":
+        return []
+    params = notification.get("params", {})
+    result = params.get("result", {})
+    if not isinstance(result, dict):
+        return []
+    slot = result.get("context", {}).get("slot")
+    value = result.get("value", {})
+    signature = value.get("signature")
+    err = value.get("err")
+    if err is not None:
+        return []
+    logs = value.get("logs", [])
+    events = []
+    for log_line in logs:
+        if log_line.startswith("Program data: "):
+            raw_data = log_line[len("Program data: "):]
+            ev = decode_program_data(raw_data)
+            if ev is not None:
+                events.append((slot, (signature, raw_data), ev))
+    return events
